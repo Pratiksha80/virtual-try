@@ -1,0 +1,28 @@
+.dashboard-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.dashboard-body {
+  flex: 1;
+  background: linear-gradient(135deg, #fdfbfb, #ebedee);
+}
+
+.dashboard-sidebar {
+  background: white;
+  border-right: 1px solid #ddd;
+  min-height: calc(100vh - 56px); /* 56px = navbar height */
+}
+
+.dashboard-main {
+  background: #ffffffcc;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+}
