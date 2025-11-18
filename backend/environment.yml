@@ -1,0 +1,29 @@
+name: virtualtryon
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.10
+  - pip
+  - pytorch
+  - torchvision
+  - cudatoolkit
+  - tensorflow-gpu
+  - numpy
+  - pillow
+  - opencv
+  - mediapipe
+  - scikit-learn
+  - scikit-image
+  - fastapi
+  - uvicorn
+  - python-multipart
+  - pip:
+    - rembg[gpu]
+    - playwright
+    - viton-hd
+    - pymongo
+    - python-dotenv
+    - bcrypt
+    - pyjwt

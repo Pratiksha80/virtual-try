@@ -1,0 +1,20 @@
+{
+  "name": "virtual-try",
+  "version": "1.0.0",
+  "description": "This project is a virtual try-on web app that lets users overlay clothes on themselves using AI models (MediaPipe, OpenCV) and smart tags (QR/RFID).",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prajjupk/Virtual-Try.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Prajjupk/Virtual-Try/issues"
+  },
+  "homepage": "https://github.com/Prajjupk/Virtual-Try#readme"
+}

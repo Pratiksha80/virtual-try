@@ -1,195 +1,352 @@
-import React, { useState, useRef } from 'react';
-import { Form, Button, Card, Spinner, Alert, Container } from 'react-bootstrap';
+﻿import React, { useState, useRef } from 'react';
+import { Container, Form, Button, Image, Spinner, Alert } from 'react-bootstrap';
+import { Camera, Upload } from 'lucide-react';
+import axios from 'axios';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
+const CLOTH_TYPES = ['shirt', 'pant', 'dress', 'saree']; // lowercase to match backend
 
 const LinkBasedTryOn = () => {
-  const [link, setLink] = useState('');
-  const [clothType, setClothType] = useState('shirt');
-  const [imageFile, setImageFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [resultImg, setResultImg] = useState(null);
-  const [error, setError] = useState(null);
-  const [useCamera, setUseCamera] = useState(false);
+    const [productLink, setProductLink] = useState('');
+    const [clothType, setClothType] = useState('shirt');
+    const [userImage, setUserImage] = useState(null);
+    const [userImagePreview, setUserImagePreview] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [result, setResult] = useState(null);
+    const fileInputRef = useRef(null);
 
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                setError('Please select a valid image file');
+                return;
+            }
 
-  // 📂 File upload handler
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    setImageFile(file);
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result);
-      reader.readAsDataURL(file);
-    }
-  };
+            // Validate file size (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                setError('Image file size should be less than 10MB');
+                return;
+            }
 
-  // 📷 Start camera
-  const startCamera = async () => {
-    try {
-      setUseCamera(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) {
-      console.error("Camera error:", err);
-      alert("Unable to access camera.");
-    }
-  };
+            setUserImage(file);
+            setError(null);
+            
+            // Create preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setUserImagePreview(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
-  // 📸 Capture from camera
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
+    const handleCapture = () => {
+        // TODO: Implement camera capture functionality
+        alert('Camera capture will be implemented soon!');
+    };
 
-    canvas.toBlob(blob => {
-      const file = new File([blob], 'captured.png', { type: 'image/png' });
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result);
-      reader.readAsDataURL(file);
-    });
+    const validateForm = () => {
+        if (!productLink.trim()) {
+            setError('Please enter a product link');
+            return false;
+        }
 
-    video.srcObject.getTracks().forEach(track => track.stop());
-    setUseCamera(false);
-  };
+        // Basic URL validation
+        try {
+            new URL(productLink);
+        } catch {
+            setError('Please enter a valid URL');
+            return false;
+        }
 
-  // 🚀 Submit form (NO SSE, plain JSON)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+        if (!userImage) {
+            setError('Please select an image');
+            return false;
+        }
 
-    if (!link || !imageFile) {
-      setError("Please provide both a product link and an image.");
-      return;
-    }
+        return true;
+    };
 
-    setLoading(true);
-    setResultImg(null);
-    setError(null);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!validateForm()) {
+            return;
+        }
 
-    const formData = new FormData();
-    formData.append('link', link);
-    formData.append('cloth_type', clothType);
-    formData.append('image', imageFile);
+        setLoading(true);
+        setError(null);
+        setResult(null);
 
-    try {
-      const response = await fetch('http://127.0.0.1:8000/tryon/link', {
-        method: 'POST',
-        body: formData,
-      });
+        const formData = new FormData();
+        formData.append('link', productLink.trim());
+        formData.append('cloth_type', clothType);
+        formData.append('image', userImage);
 
-      const data = await response.json();
+        try {
+            console.log('Sending request with:', { 
+                productLink: productLink.trim(), 
+                clothType,
+                imageSize: userImage.size,
+                imageName: userImage.name 
+            });
 
-      if (response.ok) {
-        setResultImg(`data:image/png;base64,${data.output_image_base64}`);
-      } else {
-        setError(data.detail || 'Something went wrong.');
-      }
-    } catch (err) {
-      setError("Server error: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+            const response = await axios.post(`${BACKEND_URL}/tryon/link`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+                timeout: 60000, // 60 second timeout
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    console.log(`Upload Progress: ${percentCompleted}%`);
+                }
+            });
 
-  return (
-    <Container fluid className="py-4 px-3">
-      <Container style={{ maxWidth: '600px' }}>
-        <h3 className="mb-4">🔗 Link-Based Try-On</h3>
+            console.log('Response received:', response.data);
 
-        {error && <Alert variant="danger">{error}</Alert>}
+            if (response.data.status === 'done') {
+                if (response.data.output_image_base64) {
+                    setResult(response.data);
+                } else {
+                    setError('Processing completed but no image was returned');
+                }
+            } else if (response.data.error) {
+                setError(response.data.error);
+            } else {
+                setError(response.data.detail || 'Processing failed');
+            }
+        } catch (error) {
+            console.error('Request failed:', error);
+            
+            if (error.code === 'ECONNABORTED') {
+                setError('Request timed out. Please try again with a smaller image.');
+            } else if (error.response) {
+                // Server responded with error status
+                const errorMessage = error.response.data?.error || 
+                                   error.response.data?.detail || 
+                                   `Server error: ${error.response.status}`;
+                setError(errorMessage);
+            } else if (error.request) {
+                // Request made but no response
+                setError('Unable to connect to server. Please check your connection.');
+            } else {
+                // Other error
+                setError(`Request failed: ${error.message}`);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        <Form onSubmit={handleSubmit}>
-          <Form.Group className="mb-3">
-            <Form.Label>Paste Product Link</Form.Label>
-            <Form.Control
-              type="url"
-              placeholder="https://www.amazon.in/..."
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              required
-            />
-          </Form.Group>
+    const resetForm = () => {
+        setProductLink('');
+        setClothType('shirt');
+        setUserImage(null);
+        setUserImagePreview(null);
+        setError(null);
+        setResult(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
 
-          <Form.Group className="mb-3">
-            <Form.Label>Select Cloth Type</Form.Label>
-            <Form.Select
-              value={clothType}
-              onChange={(e) => setClothType(e.target.value)}
-            >
-              <option value="shirt">Shirt</option>
-              <option value="pant">Pant</option>
-              <option value="dress">Dress</option>
-            </Form.Select>
-          </Form.Group>
+    const downloadResult = () => {
+        if (!result?.output_image_base64) return;
+        
+        try {
+            const link = document.createElement('a');
+            link.href = `data:image/png;base64,${result.output_image_base64}`;
+            link.download = `virtual-tryon-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Download failed:', error);
+            setError('Failed to download image');
+        }
+    };
 
-          <Form.Group className="mb-3">
-            <Form.Label>Upload Full Body Image</Form.Label>
-            <Form.Control
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              disabled={useCamera}
-            />
-          </Form.Group>
-
-          <Button variant="outline-secondary" onClick={startCamera} className="mb-3 w-100">
-            📸 Capture Using Camera
-          </Button>
-
-          {preview && (
-            <div className="text-center mb-3">
-              <img src={preview} alt="preview" className="img-fluid rounded" style={{ maxHeight: 300 }} />
+    return (
+        <Container className="mt-4">
+            <div className="text-center mb-5">
+                <h2 style={{ color: 'var(--primary-color)' }}>✨ Your Virtual Try-On</h2>
+                <p className="text-muted">AI-Powered Fashion</p>
+                <h4 className="mt-4" style={{ color: 'var(--primary-color)' }}>💎 Try-On with Link</h4>
             </div>
-          )}
 
-          <Button type="submit" disabled={loading} className="w-100">
-            {loading ? <Spinner animation="border" size="sm" /> : 'Try Now'}
-          </Button>
-        </Form>
+            <div className="mx-auto" style={{ maxWidth: '600px' }}>
+                <Form onSubmit={handleSubmit} className="p-4 rounded-3 shadow-sm" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)' }}>
+                    <Form.Group className="mb-4">
+                        <Form.Label className="fw-bold">Paste Product Link</Form.Label>
+                        <Form.Control
+                            type="url"
+                            value={productLink}
+                            onChange={(e) => setProductLink(e.target.value)}
+                            placeholder="https://www.amazon.in/product-link"
+                            className="py-2"
+                            required
+                        />
+                        <Form.Text className="text-muted">
+                            Supported: Amazon, Flipkart, and other e-commerce sites
+                        </Form.Text>
+                    </Form.Group>
 
-        {resultImg && (
-          <Card className="mt-4 p-3 text-center shadow-sm">
-            <h5 className="mb-3">🧥 Virtual Try-On Output</h5>
-            <img
-              src={resultImg}
-              alt="Result"
-              className="img-fluid rounded"
-              style={{ maxHeight: 400 }}
-            />
-          </Card>
-        )}
-      </Container>
+                    <Form.Group className="mb-4">
+                        <Form.Label className="fw-bold">Select Cloth Type</Form.Label>
+                        <Form.Select
+                            value={clothType}
+                            onChange={(e) => setClothType(e.target.value)}
+                            className="py-2"
+                        >
+                            {CLOTH_TYPES.map(type => (
+                                <option key={type} value={type}>
+                                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                                </option>
+                            ))}
+                        </Form.Select>
+                    </Form.Group>
 
-      {useCamera && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-          }}
-        >
-          <video ref={videoRef} autoPlay playsInline style={{ maxWidth: '100%', maxHeight: '80vh' }} />
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
-          <Button variant="success" className="mt-3" onClick={capturePhoto}>
-            📸 Capture Photo
-          </Button>
-        </div>
-      )}
-    </Container>
-  );
+                    <Form.Group className="mb-4">
+                        <Form.Label className="fw-bold">Upload Full Body Image</Form.Label>
+                        <div className="d-grid gap-2">
+                            <Button 
+                                variant="outline-secondary" 
+                                className="py-3 d-flex align-items-center justify-content-center gap-2"
+                                onClick={() => fileInputRef.current?.click()}
+                                type="button"
+                            >
+                                <Upload size={20} />
+                                {userImage ? 'Change Image' : 'Choose File'}
+                            </Button>
+                            <Button 
+                                variant="outline-primary" 
+                                className="py-3 d-flex align-items-center justify-content-center gap-2"
+                                onClick={handleCapture}
+                                type="button"
+                            >
+                                <Camera size={20} />
+                                Capture Using Camera
+                            </Button>
+                            <Form.Control
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                accept="image/*"
+                                className="d-none"
+                            />
+                            {userImage && (
+                                <div className="text-center mt-2">
+                                    <div className="text-muted mb-2">
+                                        Selected: {userImage.name} ({(userImage.size / 1024 / 1024).toFixed(1)} MB)
+                                    </div>
+                                    {userImagePreview && (
+                                        <Image 
+                                            src={userImagePreview} 
+                                            alt="Preview" 
+                                            style={{ maxHeight: '200px', maxWidth: '150px' }}
+                                            className="rounded"
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <Form.Text className="text-muted">
+                            For best results, use a clear, full-body image with good lighting
+                        </Form.Text>
+                    </Form.Group>
+
+                    <div className="d-grid gap-2 mt-4">
+                        <Button 
+                            variant="primary" 
+                            type="submit" 
+                            disabled={loading || !productLink.trim() || !userImage} 
+                            className="py-3"
+                        >
+                            {loading ? (
+                                <>
+                                    <Spinner animation="border" size="sm" className="me-2" />
+                                    Processing your request...
+                                </>
+                            ) : (
+                                'Try Now'
+                            )}
+                        </Button>
+                        
+                        {(userImage || productLink || result) && (
+                            <Button 
+                                variant="outline-secondary" 
+                                onClick={resetForm}
+                                className="py-2"
+                                type="button"
+                            >
+                                Reset Form
+                            </Button>
+                        )}
+                    </div>
+                </Form>
+
+                {error && (
+                    <Alert variant="danger" className="mt-4" dismissible onClose={() => setError(null)}>
+                        <strong>Error:</strong> {error}
+                    </Alert>
+                )}
+
+                {result && (
+                    <div className="mt-5">
+                        <div className="text-center mb-4">
+                            <h3 style={{ color: 'var(--accent-2)' }}>🎉 Your Virtual Try-On Result</h3>
+                            {result.preferred_size && (
+                                <p className="text-muted">
+                                    Recommended Size: <strong>{result.preferred_size}</strong>
+                                </p>
+                            )}
+                        </div>
+                        <div className="d-flex flex-column align-items-center">
+                            <div style={{ maxWidth: '500px', width: '100%' }}>
+                                <Image 
+                                    src={`data:image/png;base64,${result.output_image_base64}`}
+                                    alt="Virtual Try-On Result" 
+                                    fluid 
+                                    className="rounded-3 shadow-sm"
+                                    style={{ width: '100%', objectFit: 'cover' }} 
+                                />
+                            </div>
+                            <div className="d-flex gap-2 mt-4">
+                                <Button 
+                                    variant="success" 
+                                    className="d-flex align-items-center gap-2"
+                                    style={{ 
+                                        borderRadius: '50px',
+                                        padding: '10px 24px',
+                                        fontSize: '1.1rem'
+                                    }}
+                                    onClick={downloadResult}
+                                >
+                                    <span role="img" aria-label="download">⬇️</span> Download Result
+                                </Button>
+                                <Button 
+                                    variant="outline-primary" 
+                                    className="d-flex align-items-center gap-2"
+                                    style={{ 
+                                        borderRadius: '50px',
+                                        padding: '10px 24px',
+                                        fontSize: '1.1rem'
+                                    }}
+                                    onClick={() => setResult(null)}
+                                >
+                                    Try Another
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </Container>
+    );
 };
 
 export default LinkBasedTryOn;

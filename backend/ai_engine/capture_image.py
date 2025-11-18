@@ -3,7 +3,7 @@ import subprocess
 import sys
 import os
 
-def capture_cloth_image(url: str, output_path: str):
+def capture_cloth_image(url: str, output_path: str, timeout: int = 25):
     """
     Runs capture_worker.py in a separate process to avoid Windows asyncio issues.
     """
@@ -14,7 +14,8 @@ def capture_cloth_image(url: str, output_path: str):
         result = subprocess.run(
             [sys.executable, os.path.join(os.path.dirname(__file__), "capture_worker.py"), url, output_path],
             capture_output=True,
-            text=True
+            text=True,
+            timeout=timeout
         )
 
         if result.returncode != 0:

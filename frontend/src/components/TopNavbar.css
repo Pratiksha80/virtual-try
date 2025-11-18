@@ -1,0 +1,64 @@
+/* TopNavbar.css - Modern Navbar Styles */
+
+.navbar {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.95) 0%, rgba(20, 184, 166, 0.95) 100%);
+  color: #fff;
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 4px 24px rgba(60,60,120,0.08);
+  font-weight: 600;
+  transition: box-shadow 0.3s;
+}
+.navbar:hover {
+  box-shadow: 0 8px 32px rgba(60,60,120,0.12);
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -1px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.navbar-brand:hover {
+  color: var(--accent-2);
+}
+
+.nav-link {
+  color: #fff !important;
+  font-weight: 500;
+  font-size: 1.08rem;
+  margin-right: 18px;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+}
+.nav-link:hover, .nav-link.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff !important;
+  transform: scale(1.05);
+}
+
+.avatar-circle {
+  background: linear-gradient(145deg, var(--primary-color), var(--accent-1));
+  border: 2px solid rgba(255,255,255,0.4);
+  color: #fff;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(60,60,120,0.10);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .navbar-brand {
+    font-size: 1.1rem;
+  }
+  .nav-link {
+    font-size: 0.98rem;
+    margin-right: 8px;
+  }
+}

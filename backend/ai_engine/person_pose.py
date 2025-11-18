@@ -41,7 +41,7 @@ def infer_keypoints(img_path: str) -> Dict[str, Any]:
             for lm in landmarks.landmark:
                 kps.append([lm.x * w, lm.y * h])
                 conf.append(lm.visibility if hasattr(lm, "visibility") else 1.0)
-        # build index map only for known pose joints we’ll use
+        # build index map only for known pose joints we'll use
         if prefix == "pose" and landmarks:
             names = {
                 "nose":0, "left_eye_inner":1, "left_eye":2, "left_eye_outer":3,
@@ -66,8 +66,9 @@ def infer_keypoints(img_path: str) -> Dict[str, Any]:
     kps = np.array(kps, dtype=np.float32) if kps else np.zeros((0,2), np.float32)
     conf = np.array(conf, dtype=np.float32) if conf else np.zeros((0,), np.float32)
 
-    # derive a few centers we’ll use
+    # derive a few centers we'll use
     def _mid(a, b):
+        nonlocal kps
         if a in index_map and b in index_map:
             idx = len(kps)
             pa = kps[index_map[a]]
@@ -88,5 +89,64 @@ def infer_keypoints(img_path: str) -> Dict[str, Any]:
     if mid_hip_idx is not None:
         index_map["mid_hip"] = mid_hip_idx
         conf = np.append(conf, [1.0])
+
+    # Validate and estimate essential keypoints for clothing fitting
+    essential_keypoints = ["left_shoulder", "right_shoulder", "mid_shoulder", "mid_hip", "left_hip", "right_hip"]
+    missing_keypoints = [kp for kp in essential_keypoints if kp not in index_map]
+    
+    if missing_keypoints:
+        print(f"⚠️ Warning: Missing essential keypoints: {missing_keypoints}")
+        # Try to estimate missing keypoints if possible
+        
+        # Estimate shoulders if missing
+        if "left_shoulder" not in index_map and "right_shoulder" in index_map:
+            # Estimate left shoulder based on right shoulder and neck
+            right_shoulder = kps[index_map["right_shoulder"]]
+            idx = len(kps)
+            estimated_left = right_shoulder + [-0.2 * w, 0]  # Estimate 20% of image width to the left
+            kps = np.append(kps, [estimated_left], axis=0)
+            conf = np.append(conf, [0.5])  # Lower confidence for estimated point
+            index_map["left_shoulder"] = idx
+            
+        if "right_shoulder" not in index_map and "left_shoulder" in index_map:
+            # Estimate right shoulder based on left shoulder
+            left_shoulder = kps[index_map["left_shoulder"]]
+            idx = len(kps)
+            estimated_right = left_shoulder + [0.2 * w, 0]
+            kps = np.append(kps, [estimated_right], axis=0)
+            conf = np.append(conf, [0.5])
+            index_map["right_shoulder"] = idx
+            
+        # Estimate mid points
+        if "mid_shoulder" not in index_map and "left_shoulder" in index_map and "right_shoulder" in index_map:
+            # Add mid_shoulder if we have both shoulders
+            idx = len(kps)
+            ls = kps[index_map["left_shoulder"]]
+            rs = kps[index_map["right_shoulder"]]
+            kps_list = kps.tolist()
+            kps_list.append(((ls + rs) / 2.0).tolist())
+            kps = np.array(kps_list, dtype=np.float32)
+            index_map["mid_shoulder"] = idx
+            conf = np.append(conf, [1.0])
+        
+        if "mid_hip" not in index_map and "left_hip" in index_map and "right_hip" in index_map:
+            # Add mid_hip if we have both hips
+            idx = len(kps)
+            lh = kps[index_map["left_hip"]]
+            rh = kps[index_map["right_hip"]]
+            kps_list = kps.tolist()
+            kps_list.append(((lh + rh) / 2.0).tolist())
+            kps = np.array(kps_list, dtype=np.float32)
+            index_map["mid_hip"] = idx
+            conf = np.append(conf, [1.0])
+
+    # Check confidence scores and warn about low-confidence detections
+    low_confidence_keypoints = []
+    for name, idx in index_map.items():
+        if idx < len(conf) and conf[idx] < 0.5:
+            low_confidence_keypoints.append(name)
+    
+    if low_confidence_keypoints:
+        print(f"⚠️ Warning: Low confidence keypoints detected: {low_confidence_keypoints}")
 
     return {"kps": kps, "conf": conf, "index_map": index_map, "size": (w, h)}
